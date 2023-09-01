@@ -2,10 +2,20 @@ import datetime
 import webbrowser
 import interface
 import tkinter      #for Linux you must install tkinter and scrot
+import socket
+import time
+import os
+import struct
+import win32api
+
+import pyautogui
+import cv2
 
 import numpy as np  #pip install numpy
 import cv2 as cv    #pip install opencv-python
 import pyautogui    #pip install PyAutoGUI
+
+from os import walk
 
 status = ""
 
@@ -55,16 +65,37 @@ interface.video_format.add_checkbutton(label=".avi", onvalue=1, offvalue=0, vari
 
 # interface.about.add_command(label="Mehmet Mert Altuntas",
                             # command=lambda: webbrowser.open("https://github.com/mehmet-mert"))
+def is_another_process_running():
+    global singleton_socket
+    singleton_socket = socket.socket()
+    try:
+        singleton_socket.bind(('127.0.0.1', 56231))
+        singleton_socket.listen()
+    except:
+        return True
+    return False
 
+def send(screen, currtime, idletime, filename, username):
+    sock = socket.socket()
+    sock.settimeout(60)
+    try:
+        sock.connect((interface.hostname.get(), 56230))
+        sock.sendall(struct.pack('<QQ64s64sI', 111, 222, filename.encode('utf-8'), interface.username.get().encode('utf-8'), len(screen)))
+        sock.sendall(screen)
+        sock.close()
+        os.remove("Outputs/"+filename)
+    except:
+        print("coonect failed")
+    
+    # logfp.write('Sent {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
 
 # Start button command
 def create_vid():
     global out
     screen_size = pyautogui.size()
     fourcc = cv.VideoWriter_fourcc(*result_format2())
-    out = cv.VideoWriter("Outputs/FrameRecorder " + find_time() + result_format(), fourcc, interface.switch.get(),
+    out = cv.VideoWriter("Outputs/"+ interface.username.get()+ " " + find_time() + result_format(), fourcc, interface.switch.get(),
                          (screen_size))
-
 
 def record():
     img = pyautogui.screenshot()
@@ -78,6 +109,18 @@ def start_record():
         create_vid()
     status_playing("playing")
 
+def stop_record():
+    out.release()
+    f = []
+    # time.sleep(60)
+    for (dirpath, dirnames, filenames) in walk("Outputs"):
+        for file in filenames:
+            print (file)
+            imgfp = open("Outputs/"+file, 'rb')
+            imgdata = imgfp.read()
+            imgfp.close()
+            send(imgdata, find_time(), find_time(), file, interface.username.get())
+            time.sleep(1)
 
 # Report what's happening
 def status_playing(yeter):
@@ -117,4 +160,4 @@ while interface.running:
     elif status == "stopped":
         pass
     elif status == "end":
-        out.release()
+        stop_record()
