@@ -7,11 +7,16 @@ import cv2
 import numpy as np  #pip install numpy
 import cv2 as cv    #pip install opencv-python
 import pyautogui    #pip install PyAutoGUI
+# import win32serviceutil
+# import win32service
+# import win32event
+# import servicemanager
 from os import walk
 import shutil
 import winreg
 from pywinauto import Application
 from dotenv import dotenv_values
+
 global server_ip,user_name
 
 # config = dotenv_values('.env')
@@ -110,17 +115,20 @@ def video_record():
     into_server(create_time_dt)
 
 def add_to_startup():
-    script_path = os.path.realpath(__file__)
-    # script_path = sys.executable
+    running_file = sys.argv[0]
+    script_path = os.path.abspath(running_file)
+    conf_path = script_path.replace('main.exe','setting.conf')
     script_name = "Monitoring"
     print(script_path)
-    print('setting automatically...')
+    
+    # Get the path to the Startup folder
     startup_folder = os.path.join(os.getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
     
     # Copy the script to the Startup folder
-    if not os.path.exists(os.path.join(startup_folder, "main.py")):
+    if not os.path.exists(os.path.join(startup_folder, "main.exe")):
         # Copy the script to the Startup folder
         shutil.copy2(script_path, startup_folder)
+        print('setting automatically...')
     else:
         print("main.py already exists in the startup folder.")
     # Create a shortcut to the script
@@ -141,6 +149,21 @@ def add_login_startup(file_path):
     # Close the registry key
     winreg.CloseKey(key)
 
+
+# def prevent_deletion():
+#     # Get the path of the current script
+#     script_delete_path = sys.argv[0]
+#     # Get the absolute path of the script
+#     abs_path = os.path.abspath(script_delete_path)
+#     # Set the file attributes to read-only
+#     try:
+#         os.chmod(abs_path, 0o444)
+#         print("File set to read-only. Deletion prevented.")
+#     except OSError as e:
+#         print(f"Error: {e}")
+
+# prevent_deletion()     
+    
 # def prevent_deletion():
 #     # Get the path of the current script
 #     script_delete_path = sys.argv[0]
@@ -179,10 +202,10 @@ def create_result_directory():
         os.makedirs(directory)
 
 def start_monitoring():
+    add_to_startup()
+    create_result_directory()
     while True:
-        add_to_startup()
-        create_result_directory()
-        print('++++++++++++++++++++++')
+        print('record starting ++++++++++++++++++++++')
         video_record()
 status = True
 while status:
