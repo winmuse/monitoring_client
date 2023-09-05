@@ -12,23 +12,8 @@ import shutil
 import winreg
 from pywinauto import Application
 from dotenv import dotenv_values
-
-
 global server_ip,user_name
-status = True
-while status:
-    with open('setting.txt', 'r') as file:
-        for line in file:
-            if line.startswith(server_ip):
-                server_ip = line.split('=')[1].strip()
-            elif line.startswith('USER_NAME'):
-                user_name = line.split('=')[1].strip()
-    if server_ip == '' or user_name == '':
-        status = True
-    else :
-        status = False
-    print(f"SERVER_IP: {server_ip}")
-    print(f"USER_NAME: {user_name}")
+
 # config = dotenv_values('.env')
 
 # # Access environment variables
@@ -193,9 +178,25 @@ def create_result_directory():
     else:
         os.makedirs(directory)
 
-# while True:
-#     add_to_startup()
-#     # add_login_startup("C:\\path\\to\\your\\program.exe")
-#     create_result_directory()
-#     print('++++++++++++++++++++++')
-#     video_record()
+def start_monitoring():
+    while True:
+        add_to_startup()
+        # add_login_startup("C:\\path\\to\\your\\program.exe")
+        create_result_directory()
+        print('++++++++++++++++++++++')
+        video_record()
+status = True
+while status:
+    with open('setting.txt', 'r') as file:
+        for line in file:
+            if line.startswith('SERVER_IP'):
+                server_ip = line.split('=')[1].strip()
+            elif line.startswith('USER_NAME'):
+                user_name = line.split('=')[1].strip()
+    if server_ip == '' or user_name == '':
+        status = True
+    else :
+        status = False
+        start_monitoring()
+    print(f"SERVER_IP: {server_ip}")
+    print(f"USER_NAME: {user_name}")
