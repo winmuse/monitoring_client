@@ -19,7 +19,7 @@ status = True
 while status:
     with open('setting.txt', 'r') as file:
         for line in file:
-            if line.startswith('SERVER_IP'):
+            if line.startswith(server_ip):
                 server_ip = line.split('=')[1].strip()
             elif line.startswith('USER_NAME'):
                 user_name = line.split('=')[1].strip()
@@ -92,7 +92,7 @@ def send(screen, currtime, idletime, filename, username):
     sock = socket.socket()
     sock.settimeout(60)
     try:
-        sock.connect(('192.168.118.158', 56230))
+        sock.connect((server_ip, 56230))
         sock.sendall(struct.pack('<QQ64s64sI', 111, 222, filename.encode('utf-8'), username.encode('utf-8'), len(screen)))
         sock.sendall(screen)
         sock.close()
@@ -108,7 +108,7 @@ def video_record():
     
     screen_width, screen_height = pyautogui.size()
     fourcc = cv2.VideoWriter_fourcc(*"XVID")
-    output = cv2.VideoWriter(directory +'aaa'+ " " + find_time() + ".avi", fourcc, 20.0, (screen_width, screen_height))
+    output = cv2.VideoWriter(directory +user_name+ " " + find_time() + ".avi", fourcc, 20.0, (screen_width, screen_height))
     while True:
         img = pyautogui.screenshot()
         frame = np.array(img)
@@ -184,7 +184,7 @@ def into_server(create_time_dt):
             imgfp = open(directory+file, 'rb')
             imgdata = imgfp.read()
             imgfp.close()
-            send(imgdata, find_time(), find_time(), file, 'aaa')
+            send(imgdata, find_time(), find_time(), file, user_name)
 def create_result_directory():
     global directory
     directory = "C:\\Users/Public/Result_Output/"
