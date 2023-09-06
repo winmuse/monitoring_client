@@ -23,11 +23,11 @@ import psutil
 global server_ip,user_name
 
 def is_process_running(process_name):
+    count = 0
     for proc in psutil.process_iter(['name']):
-        count = 0
-        if proc.name() == process_name:
+        if proc.name() in process_name:
             count = count + 1
-            if count > 1:
+            if count > 2:
                 return True
     return False
 def find_time():
@@ -145,6 +145,7 @@ def start_monitoring():
     # current_process_name = 'main.exe'
     if is_process_running(current_process_name):
         print("The process " + current_process_name + " is running.")
+        sys.exit(1)
     else:
         add_to_startup()
         create_result_directory()
