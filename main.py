@@ -7,6 +7,7 @@ import cv2
 import numpy as np  #pip install numpy
 import cv2 as cv    #pip install opencv-python
 import pyautogui    #pip install PyAutoGUI
+import time
 # import win32serviceutil
 # import win32service
 # import win32event
@@ -16,62 +17,19 @@ import shutil
 import winreg
 from pywinauto import Application
 from dotenv import dotenv_values
+from threading import Thread
+import psutil
 
 global server_ip,user_name
 
-# config = dotenv_values('.env')
-
-# # Access environment variables
-# SERVER_IP = config['SERVER_IP']
-# USER_NAME = config['USER_NAME']
-
-# # Print the values
-# print(f"SERVER_IP: {SERVER_IP}")
-# print(f": {USER_NAME}")
-
-
-# automatically running windows...
-# __script_path = os.path.realpath(__file__)
-# app = Application().start("pythonw.exe " + __script_path)
-# script_start_path = os.path.realpath(__file__)
-# script_start_path = sys.executable
-# subprocess.Popen([script_start_path], creationflags=subprocess.CREATE_NO_WINDOW)
-
-# Find the time for name
-# class MyService(win32serviceutil.ServiceFramework):
-#     _svc_name_ = 'MyService'
-#     _svc_display_name_ = 'My Service'
-
-#     def __init__(self, args):
-#         win32serviceutil.ServiceFramework.__init__(self, args)
-#         self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
-#         socket.setdefaulttimeout(60)
-#         self.is_running = True
-
-#     def SvcStop(self):
-#         self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
-#         win32event.SetEvent(self.hWaitStop)
-#         self.is_running = False
-
-#     def SvcDoRun(self):
-#         servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
-#                               servicemanager.PYS_SERVICE_STARTED,
-#                               (self._svc_name_, ''))
-#         self.main()
-
-#     def main(self):
-#         # Your program's logic goes here
-#         while self.is_running:
-#             # Do something
-#             pass
-
-# if __name__ == '__main__':
-#     if len(sys.argv) == 1:
-#         servicemanager.Initialize()
-#         servicemanager.PrepareToHostSingle(MyService)
-#         servicemanager.StartServiceCtrlDispatcher()
-#     else:
-#         win32serviceutil.HandleCommandLine(MyService)
+def is_process_running(process_name):
+    for proc in psutil.process_iter(['name']):
+        count = 0
+        if proc.name() == process_name:
+            count = count + 1
+            if count > 1:
+                return True
+    return False
 def find_time():
     x = datetime.datetime.now()
     date_for_name = (x.strftime("%d") + "-" + x.strftime("%m") + "-" + x.strftime("%Y") + "-" + x.strftime("%H") + "-" +
@@ -88,37 +46,41 @@ def send(screen, currtime, idletime, filename, username):
         sock.close()
         os.remove( directory+filename )
         print('send file success...')
-        video_record()
     except:
+        send(screen, currtime, idletime, filename, username)
         print("coonect failed")
-    
+ 
 def video_record():
-    create_time = find_time()
-    create_time_dt = datetime.datetime.strptime(create_time, "%d-%m-%Y-%H-%M-%S")
-    
+    cut_time = 10
+    create_time = datetime.datetime.now()
     screen_width, screen_height = pyautogui.size()
     fourcc = cv2.VideoWriter_fourcc(*"XVID")
-    output = cv2.VideoWriter(directory +user_name+ " " + find_time() + ".avi", fourcc, 20.0, (screen_width, screen_height))
+    output = cv2.VideoWriter(directory + user_name + " " + find_time() + ".avi", fourcc, 20.0, (screen_width, screen_height))
+    frame_count = 0
     while True:
         img = pyautogui.screenshot()
         frame = np.array(img)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         output.write(frame)
-        # cv2.imshow("Screen Recording", frame)
-        
+        frame_count += 1
+        if frame_count % (20 * 60 * cut_time) == 0:
+            output.release()
+            into_server(cut_time)
+            output = cv2.VideoWriter(directory + user_name + " " + find_time() + ".avi", fourcc, 20.0, (screen_width, screen_height))
         current_time = datetime.datetime.now()
-        difference_minutes = (current_time - create_time_dt).total_seconds() / 60
-        if difference_minutes > 5:
-            break
+        # difference_minutes = (current_time - create_time).total_seconds() / 60
+        # if difference_minutes >= 2.1:
+        #     break
     output.release()
     cv2.destroyAllWindows()
-    into_server(create_time_dt)
+    into_server(create_time)
 
 def add_to_startup():
     running_file = sys.argv[0]
     script_path = os.path.abspath(running_file)
-    conf_path = script_path.replace('main.exe','setting.conf')
+    setting_path = os.path.abspath('setting.conf')
     script_name = "Monitoring"
+    print(setting_path)
     print(script_path)
     
     # Get the path to the Startup folder
@@ -128,9 +90,11 @@ def add_to_startup():
     if not os.path.exists(os.path.join(startup_folder, "main.exe")):
         # Copy the script to the Startup folder
         shutil.copy2(script_path, startup_folder)
-        print('setting automatically...')
+    elif not os.path.exists(os.path.join(startup_folder, "setting.conf")):
+        # Copy the setting file to the Startup folder
+        shutil.copy2(setting_path, startup_folder)
     else:
-        print("main.py already exists in the startup folder.")
+        pass
     # Create a shortcut to the script
     shortcut_path = os.path.join(startup_folder, f"{script_name}.lnk")
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run") as key:
@@ -149,50 +113,24 @@ def add_login_startup(file_path):
     # Close the registry key
     winreg.CloseKey(key)
 
-
-# def prevent_deletion():
-#     # Get the path of the current script
-#     script_delete_path = sys.argv[0]
-#     # Get the absolute path of the script
-#     abs_path = os.path.abspath(script_delete_path)
-#     # Set the file attributes to read-only
-#     try:
-#         os.chmod(abs_path, 0o444)
-#         print("File set to read-only. Deletion prevented.")
-#     except OSError as e:
-#         print(f"Error: {e}")
-
-# prevent_deletion()     
-    
-# def prevent_deletion():
-#     # Get the path of the current script
-#     script_delete_path = sys.argv[0]
-#     # Get the absolute path of the script
-#     abs_path = os.path.abspath(script_delete_path)
-#     # Set the file attributes to read-only
-#     try:
-#         os.chmod(abs_path, 0o444)
-#         print("File set to read-only. Deletion prevented.")
-#     except OSError as e:
-#         print(f"Error: {e}")
-
-# prevent_deletion()     
-def into_server(create_time_dt):
+def current_recording(cut_time,created_file_time):
+    _current_time = datetime.datetime.now()
+    change_time_dt = datetime.datetime.strptime(created_file_time, "%d-%m-%Y-%H-%M-%S")
+    diff = (_current_time - change_time_dt).total_seconds() / 60
+    if diff < cut_time:
+        return False
+    return True
+def into_server(cut_time):
     files = os.listdir(directory)
-    print(type(create_time_dt))
-    print(create_time_dt)
-    formatted_str = create_time_dt.strftime("%d-%m-%Y-%H-%M-%S")
     for file in files:
-        print('found directory...')
-        print(formatted_str)
-        _file_found = file.split(' ')
-        print(_file_found[1])
-        # if _file_found[1].split('.')[0] == formatted_str :
-        print('record success...')
-        imgfp = open(directory+file, 'rb')
-        imgdata = imgfp.read()
-        imgfp.close()
-        send(imgdata, find_time(), find_time(), file, user_name)
+        created_file_time = file.split(' ')[1].split('.')[0]
+        if current_recording(cut_time,created_file_time):
+            imgfp = open(directory+file, 'rb')
+            imgdata = imgfp.read()
+            imgfp.close()
+            # send(imgdata, find_time(), find_time(), file, user_name)
+            thread = Thread(target=send, args=(imgdata,find_time(),find_time(), file, user_name))
+            thread.start()
 def create_result_directory():
     global directory
     directory = "C:\\Users/Public/Result_Output/"
@@ -202,9 +140,14 @@ def create_result_directory():
         os.makedirs(directory)
 
 def start_monitoring():
-    add_to_startup()
-    create_result_directory()
-    while True:
+    running_file = sys.argv[0]
+    current_process_name = running_file.replace('.\\','')
+    # current_process_name = 'main.exe'
+    if is_process_running(current_process_name):
+        print("The process " + current_process_name + " is running.")
+    else:
+        add_to_startup()
+        create_result_directory()
         print('record starting ++++++++++++++++++++++')
         video_record()
 status = True
@@ -219,6 +162,11 @@ while status:
         status = True
     else :
         status = False
-        start_monitoring()
+        try:
+            start_monitoring()
+        except Exception as e:
+            log_file = open("C:\\Monitoring_error.log", "w")
+            log_file.write(str(e) + ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
+            log_file.close()
     print(f"SERVER_IP: {server_ip}")
     print(f"USER_NAME: {user_name}")
