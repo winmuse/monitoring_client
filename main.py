@@ -59,6 +59,7 @@ def send(screen, currtime, idletime, filename, username):
     sock = socket.socket()
     sock.settimeout(60)
     try:
+        print('server send success...')
         sock.connect((server_ip, 56230))
         sock.sendall(struct.pack('<QQ64s64sI', 111, 222, filename.encode('utf-8'), username.encode('utf-8'), len(screen)))
         sock.sendall(screen)
@@ -67,10 +68,12 @@ def send(screen, currtime, idletime, filename, username):
         log_file = open("Monitoring_client.log", mode='a', buffering=1)
         log_file.write("send file success....\n")
         log_file.close()
+        
     except:
-        send(screen, currtime, idletime, filename, username)
+        print('server connection faild.')
+        # send(screen, currtime, idletime, filename, username)
         log_file = open("Monitoring_client.log", mode='a', buffering=1)
-        log_file.write("Server coonect failed.\n")
+        log_file.write("Server connection failed.\n")
         log_file.close()
  
 def video_record():
@@ -91,17 +94,16 @@ def video_record():
         frame_count += 1
         if frame_count % (20 * 60 * cut_time) == 0:
             output.release()
-            thread = Thread(target=into_server, args=(cut_time))
+            thread = Thread(target=into_server, args=(cut_time,))
             thread.start()
             # into_server(cut_time)
             output = cv2.VideoWriter(directory + user_name + " " + find_time() + ".avi", fourcc, 20.0, (screen_width, screen_height))
-        current_time = datetime.datetime.now()
+        # current_time = datetime.datetime.now()
         # difference_minutes = (current_time - create_time).total_seconds() / 60
         # if difference_minutes >= 2.1:
         #     break
     output.release()
     cv2.destroyAllWindows()
-    into_server(create_time)
 
 def add_to_startup():
     running_file = sys.argv[0]
@@ -157,8 +159,6 @@ def into_server(cut_time):
             imgdata = imgfp.read()
             imgfp.close()
             send(imgdata, find_time(), find_time(), file, user_name)
-            # thread = Thread(target=send, args=(imgdata,find_time(),find_time(), file, user_name))
-            # thread.start()
 def create_result_directory():
     global directory
     directory = "C:\\Users/Public/Result_Output/"
@@ -178,6 +178,9 @@ def start_monitoring():
     #     # print("The process " + current_process_name + " is running.")
     #     sys.exit()
     # else:
+    log_file = open("Monitoring_client.log", mode='a', buffering=1)
+    log_file.write("Started monitoring client."+ ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
+    log_file.close()
     add_to_startup()
     create_result_directory()
     video_record()
@@ -205,18 +208,6 @@ while status:
             log_file = open("Monitoring_client.log", mode='a', buffering=1)
             log_file.write(str(e) + ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
             log_file.close()
+            win32event.ReleaseMutex(mutex)
     print(f"SERVER_IP: {server_ip}")
     print(f"USER_NAME: {user_name}")
-        
-# running_file = sys.argv[0]
-# current_process_name = running_file.replace('.\\','')
-# if check_previous_instance(current_process_name):
-#     # log_file = open("Monitoring_client.log", mode='a', buffering=1)
-#     # log_file.write("Another instance of the program is already running."+ ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
-#     # log_file.close()
-#     sys.exit()
-# else:
-#     log_file = open("Monitoring_client.log", mode='a', buffering=1)
-#     log_file.write("Started monitoring client."+ ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
-#     log_file.close()
-#     start_process()
