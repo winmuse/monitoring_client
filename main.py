@@ -8,10 +8,6 @@ import numpy as np  #pip install numpy
 import cv2 as cv    #pip install opencv-python
 import pyautogui    #pip install PyAutoGUI
 import time
-# import win32serviceutil
-# import win32service
-# import win32event
-# import servicemanager
 from os import walk
 import shutil
 import winreg
@@ -19,7 +15,18 @@ from pywinauto import Application
 from dotenv import dotenv_values
 from threading import Thread
 import psutil
+import win32event
+import win32api
 
+mutex_name = "Monitoring_client"
+
+mutex = win32event.CreateMutex(None, 1, mutex_name)
+if win32api.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+    log_file = open("Monitoring_client.log", mode='a', buffering=1)
+    log_file.write("Another instance of the program is already running. {}\n".format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
+    log_file.close()   
+    sys.exit()
+# win32event.ReleaseMutex(mutex)
 
 def check_previous_instance(current_process_name):
     current_pid = os.getpid()
@@ -28,7 +35,7 @@ def check_previous_instance(current_process_name):
     log_file.write(current_process_name+"running\n")
     log_file.close()
     for proc in psutil.process_iter(['pid', 'name']):
-        if proc.name() in current_process_name:
+        if proc.name() in 'main.exe':
             count = count + 1
             if count > 2:
                 return True
@@ -175,40 +182,41 @@ def start_monitoring():
     create_result_directory()
     video_record()
 
-def start_process():
-    status = True
+# def start_process():
+status = True
+while status:
     global server_ip,user_name
-    while status:
-        with open('setting.conf', 'r') as file:
-            for line in file:
-                if line.startswith('SERVER_IP'):
-                    server_ip = line.split('=')[1].strip()
-                elif line.startswith('USER_NAME'):
-                    user_name = line.split('=')[1].strip()
-        if server_ip == '' or user_name == '':
-            status = True
+    with open('setting.conf', 'r') as file:
+        for line in file:
+            if line.startswith('SERVER_IP'):
+                server_ip = line.split('=')[1].strip()
+            elif line.startswith('USER_NAME'):
+                user_name = line.split('=')[1].strip()
+    if server_ip == '' or user_name == '':
+        status = True
+        log_file = open("Monitoring_client.log", mode='a', buffering=1)
+        log_file.write('Please input SERVER_IP,USER_NAME...' + ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
+        log_file.close()
+    else :
+        status = False
+        try:
+            start_monitoring()
+        except Exception as e:
             log_file = open("Monitoring_client.log", mode='a', buffering=1)
-            log_file.write('Please input SERVER_IP,USER_NAME...' + ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
+            log_file.write(str(e) + ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
             log_file.close()
-        else :
-            status = False
-            try:
-                start_monitoring()
-            except Exception as e:
-                log_file = open("Monitoring_client.log", mode='a', buffering=1)
-                log_file.write(str(e) + ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
-                log_file.close()
-        print(f"SERVER_IP: {server_ip}")
-        print(f"USER_NAME: {user_name}")
-running_file = sys.argv[0]
-current_process_name = running_file.replace('.\\','')
-if check_previous_instance(current_process_name):
-    log_file = open("Monitoring_client.log", mode='a', buffering=1)
-    log_file.write("Another instance of the program is already running."+ ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
-    log_file.close()
-    sys.exit()
-else:
-    log_file = open("Monitoring_client.log", mode='a', buffering=1)
-    log_file.write("Started monitoring client."+ ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
-    log_file.close()
-    start_process()
+    print(f"SERVER_IP: {server_ip}")
+    print(f"USER_NAME: {user_name}")
+        
+# running_file = sys.argv[0]
+# current_process_name = running_file.replace('.\\','')
+# if check_previous_instance(current_process_name):
+#     # log_file = open("Monitoring_client.log", mode='a', buffering=1)
+#     # log_file.write("Another instance of the program is already running."+ ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
+#     # log_file.close()
+#     sys.exit()
+# else:
+#     log_file = open("Monitoring_client.log", mode='a', buffering=1)
+#     log_file.write("Started monitoring client."+ ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
+#     log_file.close()
+#     start_process()
