@@ -25,7 +25,7 @@ def check_previous_instance(current_process_name):
     current_pid = os.getpid()
     count = 0
     log_file = open("Monitoring_client.log", mode='a', buffering=1)
-    log_file.write(current_process_name+"..................................................\n")
+    log_file.write(current_process_name+"running\n")
     log_file.close()
     for proc in psutil.process_iter(['pid', 'name']):
         if proc.name() in current_process_name:
@@ -204,11 +204,11 @@ running_file = sys.argv[0]
 current_process_name = running_file.replace('.\\','')
 if check_previous_instance(current_process_name):
     log_file = open("Monitoring_client.log", mode='a', buffering=1)
-    log_file.write("Another instance of the program is already running.\n")
+    log_file.write("Another instance of the program is already running."+ ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
     log_file.close()
     sys.exit()
 else:
     log_file = open("Monitoring_client.log", mode='a', buffering=1)
-    log_file.write("Started monitoring client.\n")
+    log_file.write("Started monitoring client."+ ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
     log_file.close()
     start_process()
