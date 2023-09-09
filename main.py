@@ -1,7 +1,7 @@
 import datetime  
 import socket
 import os
-import struct 
+import struct
 import sys
 import cv2
 import numpy as np  #pip install numpy
@@ -17,6 +17,8 @@ from threading import Thread
 import psutil
 import win32event
 import win32api
+import tkinter as tk
+from tkinter import messagebox
 
 mutex_name = "Monitoring_client"
 
@@ -27,28 +29,23 @@ if win32api.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
     log_file.close()   
     sys.exit()
 # win32event.ReleaseMutex(mutex)
-
-def check_previous_instance(current_process_name):
-    current_pid = os.getpid()
-    count = 0
-    log_file = open("Monitoring_client.log", mode='a', buffering=1)
-    log_file.write(current_process_name+"running\n")
-    log_file.close()
-    for proc in psutil.process_iter(['pid', 'name']):
-        if proc.name() in 'main.exe':
-            count = count + 1
-            if count > 2:
-                return True
-    return False
-
-def is_process_running(process_name):
-    count = 0
-    for proc in psutil.process_iter(['name']):
-        if proc.name() in process_name:
-            count = count + 1
-            if count > 3:
-                return True
-    return False
+def check_socket_connection():
+    global server_port
+    server_port = 56230
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(20)
+        sock.connect((server_ip, server_port))
+        # If the connection was successful, print a success message
+        print(f"Successfully connected to {server_ip}")
+        messagebox.showinfo("Server connection success.", f"Successfully connected to {server_ip}")
+        sock.close()
+        return True
+    except socket.error as e:
+        # If an error occurred during the connection attempt, print the error message
+        print(f"Failed to connect to {server_ip}:{server_port} - {e}")
+        messagebox.showwarning("Connection faild", f"Please insert correct SERVER_ID and USER_NAME in setting.conf. \n \nFailed to connect to {server_ip}:{server_port} - {e}")
+        return False
 def find_time():
     x = datetime.datetime.now()
     date_for_name = (x.strftime("%d") + "-" + x.strftime("%m") + "-" + x.strftime("%Y") + "-" + x.strftime("%H") + "-" +
@@ -60,7 +57,7 @@ def send(screen, currtime, idletime, filename, username):
     sock.settimeout(60)
     try:
         print('server send success...')
-        sock.connect((server_ip, 56230))
+        sock.connect((server_ip, server_port))
         sock.sendall(struct.pack('<QQ64s64sI', 111, 222, filename.encode('utf-8'), username.encode('utf-8'), len(screen)))
         sock.sendall(screen)
         sock.close()
@@ -168,16 +165,6 @@ def create_result_directory():
         os.makedirs(directory)
 
 def start_monitoring():
-    running_file = sys.argv[0]
-    current_process_name = running_file.replace('.\\','')
-    current_process_name = 'main.exe'
-    # if is_process_running(current_process_name):
-    #     log_file = open("Monitoring_client.log", mode='a', buffering=1)
-    #     log_file.write("The process " + current_process_name + " is running.\n")
-    #     log_file.close()
-    #     # print("The process " + current_process_name + " is running.")
-    #     sys.exit()
-    # else:
     log_file = open("Monitoring_client.log", mode='a', buffering=1)
     log_file.write("Started monitoring client."+ ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
     log_file.close()
@@ -195,19 +182,23 @@ while status:
                 server_ip = line.split('=')[1].strip()
             elif line.startswith('USER_NAME'):
                 user_name = line.split('=')[1].strip()
-    if server_ip == '' or user_name == '':
+    if user_name == '':
         status = True
-        log_file = open("Monitoring_client.log", mode='a', buffering=1)
-        log_file.write('Please input SERVER_IP,USER_NAME...' + ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
-        log_file.close()
+        messagebox.showwarning("Incorrect USER_NAME", f"Please insert correct USER_NAME in setting.conf.")
+        # log_file = open("Monitoring_client.log", mode='a', buffering=1)
+        # log_file.write('Please input SERVER_IP,USER_NAME...' + ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
+        # log_file.close()
+    elif check_socket_connection() == False:
+        status = True
     else :
-        status = False
         try:
             start_monitoring()
+            status = False
         except Exception as e:
             log_file = open("Monitoring_client.log", mode='a', buffering=1)
             log_file.write(str(e) + ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
             log_file.close()
-            win32event.ReleaseMutex(mutex)
+            status = True
+            # win32event.ReleaseMutex(mutex)
     print(f"SERVER_IP: {server_ip}")
     print(f"USER_NAME: {user_name}")
