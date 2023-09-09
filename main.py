@@ -44,7 +44,7 @@ def check_socket_connection():
     except socket.error as e:
         # If an error occurred during the connection attempt, print the error message
         print(f"Failed to connect to {server_ip}:{server_port} - {e}")
-        messagebox.showwarning("Connection faild", f"Please insert correct SERVER_ID and USER_NAME in setting.conf. \n \nFailed to connect to {server_ip}:{server_port} - {e}")
+        messagebox.showwarning("Connection faild", f"Please insert correct SERVER_ID and USER_NAME in setting.conf. \n \nFailed to connect to {server_ip} - {e}")
         return False
 def find_time():
     x = datetime.datetime.now()
