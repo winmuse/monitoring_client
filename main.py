@@ -20,11 +20,61 @@ import win32api
 import tkinter as tk
 from tkinter import messagebox
 
+def create_result_directory():
+    global directory
+    directory = "C:\\Users/Public/Result_Output/"
+    if os.path.exists(directory):
+        pass
+    else:
+        os.makedirs(directory)
+
 mutex_name = "Monitoring_client"
+def add_to_startup():
+    global _log_file_path
+    
+    script_name = "Monitoring"
+    client_log_file = 'Monitoring_Client.txt'
+    create_result_directory()
+    running_file = sys.argv[0]
+    setting_conf_path = os.path.join(os.getenv("APPDATA"))
+    global setting_file_path
+    setting_file_path = setting_conf_path.replace('\\AppData\\Roaming','')
+    _log_file_path = setting_file_path + '/' + client_log_file
+    script_path = os.path.abspath(running_file)
+    __conf_root = script_path.replace(running_file.replace('.\\',''),'')
+    print(__conf_root)
+    if os.path.exists(os.path.join(__conf_root, "setting.conf")):
+        setting_path = os.path.abspath('setting.conf')
+        if os.path.exists(os.path.join(setting_file_path, "setting.conf")):
+        # Copy the setting file to the Startup folder
+            os.remove(setting_file_path + '\\setting.conf')
+            shutil.copy2(setting_path, setting_file_path)
+        else:
+            shutil.copy2(setting_path, setting_file_path)
+        # setting_file_path = "."
+    else:
+        pass
+    # Get the path to the Startup folder
+    startup_folder = os.path.join(os.getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
+    # Copy the script to the Startup folder
+    if not os.path.exists(os.path.join(startup_folder, "main.exe")):
+        # Copy the script to the Startup folder
+        shutil.copy2(script_path, startup_folder)
+        log_file = open(_log_file_path, mode='a', buffering=1)
+        log_file.write("Set to run automatically upon restart. {}\n".format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
+        log_file.close()  
+    else:
+        pass
+    # Create a shortcut to the script
+    shortcut_path = os.path.join(startup_folder, f"{script_name}.lnk")
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run") as key:
+        winreg.SetValueEx(key, script_name, 0, winreg.REG_SZ, shortcut_path)
+add_to_startup()
+
 
 mutex = win32event.CreateMutex(None, 1, mutex_name)
 if win32api.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
-    log_file = open("Monitoring_client.log", mode='a', buffering=1)
+    log_file = open(_log_file_path, mode='a', buffering=1)
     log_file.write("Another instance of the program is already running. {}\n".format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
     log_file.close()   
     sys.exit()
@@ -38,19 +88,38 @@ def check_socket_connection():
         sock.connect((server_ip, server_port))
         # If the connection was successful, print a success message
         print(f"Successfully connected to {server_ip}")
-        messagebox.showinfo("Server connection success.", f"Successfully connected to {server_ip}")
+        log_file = open(_log_file_path, mode='a', buffering=1)
+        log_file.write(f"Successfully connected to {server_ip} \n".format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
+        log_file.close()
+        # messagebox.showinfo("Server connection success.", f"Successfully connected to {server_ip}")
         sock.close()
         return True
     except socket.error as e:
         # If an error occurred during the connection attempt, print the error message
         print(f"Failed to connect to {server_ip}:{server_port} - {e}")
-        messagebox.showwarning("Connection faild", f"Please insert correct SERVER_ID and USER_NAME in setting.conf. \n \nFailed to connect to {server_ip} - {e}")
+        log_file = open(_log_file_path, mode='a', buffering=1)
+        log_file.write(f"Failed to connect to {server_ip} \n".format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
+        log_file.close()
+        # messagebox.showwarning("Connection faild", f"Please insert correct SERVER_ID and USER_NAME in setting.conf. \n \nFailed to connect to {server_ip} - {e}")
         return False
 def find_time():
     x = datetime.datetime.now()
-    date_for_name = (x.strftime("%d") + "-" + x.strftime("%m") + "-" + x.strftime("%Y") + "-" + x.strftime("%H") + "-" +
+    date_for_name = (x.strftime("%Y") + "-" + x.strftime("%m") + "-" + x.strftime("%d") + "-" + x.strftime("%H") + "-" +
                      x.strftime("%M") + "-" + x.strftime("%S"))
+    # date_for_name = (x.strftime("%d") + "-" + x.strftime("%m") + "-" + x.strftime("%Y") + "-" + x.strftime("%H") + "-" +
+    #                  x.strftime("%M") + "-" + x.strftime("%S"))
     return date_for_name
+
+def into_server(cut_time):
+    files = os.listdir(directory)
+    for file in files:
+        created_file_time = file.split(' ')[1].split('.')[0]
+        if current_recording(cut_time,created_file_time):
+            imgfp = open(directory+file, 'rb')
+            imgdata = imgfp.read()
+            imgfp.close()
+            send(imgdata, find_time(), find_time(), file, user_name)
+            time.sleep(60)
 
 def send(screen, currtime, idletime, filename, username):
     sock = socket.socket()
@@ -62,19 +131,19 @@ def send(screen, currtime, idletime, filename, username):
         sock.sendall(screen)
         sock.close()
         os.remove( directory+filename )
-        log_file = open("Monitoring_client.log", mode='a', buffering=1)
-        log_file.write("send file success....\n")
+        log_file = open(_log_file_path, mode='a', buffering=1)
+        log_file.write("send file success....\n"+ ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
         log_file.close()
         
     except:
         print('server connection faild.')
         # send(screen, currtime, idletime, filename, username)
-        log_file = open("Monitoring_client.log", mode='a', buffering=1)
-        log_file.write("Server connection failed.\n")
+        log_file = open(_log_file_path, mode='a', buffering=1)
+        log_file.write("send file success failed...      Server connection failed\n")
         log_file.close()
  
 def video_record():
-    log_file = open("Monitoring_client.log", mode='a', buffering=1)
+    log_file = open(_log_file_path, mode='a', buffering=1)
     log_file.write("Started recording...\n")
     log_file.close()
     cut_time = 10
@@ -102,103 +171,51 @@ def video_record():
     output.release()
     cv2.destroyAllWindows()
 
-def add_to_startup():
-    running_file = sys.argv[0]
-    script_path = os.path.abspath(running_file)
-    setting_path = os.path.abspath('setting.conf')
-    script_name = "Monitoring"
-    
-    # Get the path to the Startup folder
-    startup_folder = os.path.join(os.getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
-    
-    # Copy the script to the Startup folder
-    if not os.path.exists(os.path.join(startup_folder, "main.exe")):
-        # Copy the script to the Startup folder
-        shutil.copy2(script_path, startup_folder)
-    else:
-        pass
-    if not os.path.exists(os.path.join(startup_folder, "setting.conf")):
-        # Copy the setting file to the Startup folder
-        shutil.copy2(setting_path, startup_folder)
-    else:
-        pass
-    # Create a shortcut to the script
-    shortcut_path = os.path.join(startup_folder, f"{script_name}.lnk")
-    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run") as key:
-        winreg.SetValueEx(key, script_name, 0, winreg.REG_SZ, shortcut_path)
-        
-def add_login_startup(file_path):
-    # Open the registry key for the current user's startup folder
-    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_ALL_ACCESS)
-
-    # Set the path to your Python executable file
-    exe_path = os.path.abspath(file_path)
-
-    # Add the executable to the startup folder
-    winreg.SetValueEx(key, "MyProgram", 0, winreg.REG_SZ, exe_path)
-
-    # Close the registry key
-    winreg.CloseKey(key)
-
 def current_recording(cut_time,created_file_time):
     _current_time = datetime.datetime.now()
-    change_time_dt = datetime.datetime.strptime(created_file_time, "%d-%m-%Y-%H-%M-%S")
+    change_time_dt = datetime.datetime.strptime(created_file_time, "%Y-%m-%d-%H-%M-%S")
     diff = (_current_time - change_time_dt).total_seconds() / 60
     if diff < cut_time:
         return False
     return True
-def into_server(cut_time):
-    files = os.listdir(directory)
-    for file in files:
-        created_file_time = file.split(' ')[1].split('.')[0]
-        if current_recording(cut_time,created_file_time):
-            imgfp = open(directory+file, 'rb')
-            imgdata = imgfp.read()
-            imgfp.close()
-            send(imgdata, find_time(), find_time(), file, user_name)
-def create_result_directory():
-    global directory
-    directory = "C:\\Users/Public/Result_Output/"
-    if os.path.exists(directory):
-        pass
-    else:
-        os.makedirs(directory)
 
 def start_monitoring():
-    log_file = open("Monitoring_client.log", mode='a', buffering=1)
+    
+    log_file = open(_log_file_path, mode='a',buffering=1)
     log_file.write("Started monitoring client."+ ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
     log_file.close()
-    add_to_startup()
-    create_result_directory()
     video_record()
-
+check_socket_connection()
 # def start_process():
 status = True
 while status:
     global server_ip,user_name
-    with open('setting.conf', 'r') as file:
+    print(setting_file_path)
+    __file_path = setting_file_path + '\\setting.conf'
+    with open(__file_path, 'r') as file:
         for line in file:
             if line.startswith('SERVER_IP'):
                 server_ip = line.split('=')[1].strip()
+                print('serverIP:' + server_ip)
             elif line.startswith('USER_NAME'):
                 user_name = line.split('=')[1].strip()
     if user_name == '':
         status = True
-        messagebox.showwarning("Incorrect USER_NAME", f"Please insert correct USER_NAME in setting.conf.")
-        # log_file = open("Monitoring_client.log", mode='a', buffering=1)
-        # log_file.write('Please input SERVER_IP,USER_NAME...' + ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
-        # log_file.close()
-    elif check_socket_connection() == False:
-        status = True
+        # messagebox.showwarning("Incorrect USER_NAME", f"Please insert correct USER_NAME in setting.conf.")
+        log_file = open(_log_file_path, mode='a',buffering=1)
+        log_file.write("Incorrect USER_NAME          Please insert correct USER_NAME in setting.conf.")
+        log_file.close()
+    # checking_connection = check_socket_connection(server_ip)
+    # if checking_connection == False:
+    #     status = True
     else :
         try:
             start_monitoring()
             status = False
         except Exception as e:
-            log_file = open("Monitoring_client.log", mode='a', buffering=1)
+            log_file = open(_log_file_path, mode='a', buffering=1)
             log_file.write(str(e) + ' {}\n'.format(time.strftime("%y:%m:%d %H:%M:%S", time.localtime())))
             log_file.close()
             status = True
             # win32event.ReleaseMutex(mutex)
-    print(f"SERVER_IP: {server_ip}")
-    print(f"USER_NAME: {user_name}")
+    add_to_startup()
